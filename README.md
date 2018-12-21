@@ -2,9 +2,9 @@
 
 [![GoDoc](https://godoc.org/github.com/Ferluci/fast-realip?status.svg)](https://godoc.org/github.com/Ferluci/fast-realip)
 
-Go package that can be used to get client's real public IP from [FastHTTP]("https://github.com/valyala/fasthttp") request, which usually useful for logging HTTP server.
+Go package that can be used to get client's real public IP from [Fast HTTP](https://github.com/valyala/fasthttp) request, which usually useful for logging HTTP server.
 
-This is fork from [realip](https://github.com/tomasen/realip) for [FastHTTP]("https://github.com/valyala/fasthttp") with some imporvements.
+This is fork from [realip](https://github.com/tomasen/realip) for [Fast HTTP](https://github.com/valyala/fasthttp) with some imporvements.
 ### Feature
 
 * Follows the rule of X-Real-IP
