@@ -16,21 +16,23 @@ Go package that can be used to get client's real public IP, which usually useful
 package main
 
 import (
-    "github.com/Ferluci/fasthttp-realip"
-    "github.com/valyala/fasthttp"
+	"github.com/Ferluci/fasthttp-realip"
+	"github.com/valyala/fasthttp"
+	"log"
 )
 
-func main(){
-    handler := requestHandler
-    if err := fasthttp.ListenAndServe("8080", handler); err != nil {
+func main() {
+	handler := realipHandler
+	if err := fasthttp.ListenAndServe(":8080", handler); err != nil {
 		log.Fatalf("Error in ListenAndServe: %s", err)
 	}
 }
 
-func realipHandler(ctx *fasthttp.RequestCtx){
+func realipHandler(ctx *fasthttp.RequestCtx) {
 	clientIP := realip.FromRequest(ctx)
 	log.Println("GET / from", clientIP)
 }
+
 
 ```
 

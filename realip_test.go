@@ -1,9 +1,11 @@
 package realip
 
 import (
-	"github.com/valyala/fasthttp"
+	"fmt"
 	"net"
 	"testing"
+
+	"github.com/valyala/fasthttp"
 )
 
 func TestIsPrivateAddr(t *testing.T) {
@@ -56,7 +58,9 @@ func TestRealIP(t *testing.T) {
 		}
 		ctx.Init(&ctx.Request, addr, nil)
 
-		ctx.Request.Header.Set("X-Real-IP", xRealIP)
+		if xRealIP != "" {
+			ctx.Request.Header.Set("X-Real-IP", xRealIP)
+		}
 
 		for _, address := range xForwardedFor {
 			ctx.Request.Header.Set("X-Forwarded-For", address)
@@ -83,6 +87,10 @@ func TestRealIP(t *testing.T) {
 			name:     "Has multiple X-Forwarded-For",
 			request:  newRequest("", "", localAddr, publicAddr1, publicAddr2),
 			expected: publicAddr2,
+		}, {
+			name:     "Has multiple address for X-Forwarded-For",
+			request:  newRequest("", "", localAddr, fmt.Sprintf("%s,%s", publicAddr1, publicAddr2)),
+			expected: publicAddr1,
 		}, {
 			name:     "Has X-Real-IP",
 			request:  newRequest("", publicAddr1),

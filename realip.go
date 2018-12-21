@@ -2,10 +2,17 @@ package realip
 
 import (
 	"errors"
-	"github.com/valyala/fasthttp"
 	"net"
+	"net/http"
 	"strings"
+
+	"github.com/valyala/fasthttp"
 )
+
+// Should use canonical format of the header key s
+// https://golang.org/pkg/net/http/#CanonicalHeaderKey
+var xForwardedFor = http.CanonicalHeaderKey("X-Forwarded-For")
+var xRealIP = http.CanonicalHeaderKey("X-Real-IP")
 
 var cidrs []*net.IPNet
 
@@ -49,11 +56,11 @@ func isPrivateAddress(address string) (bool, error) {
 	return false, nil
 }
 
-// FromRequest return client's real public IP address from http request headers.
+// FromRequest returns client's real public IP address from http request headers.
 func FromRequest(ctx *fasthttp.RequestCtx) string {
 	// Fetch header value
-	xRealIP := ctx.Request.Header.Peek("X-Real-IP")
-	xForwardedFor := ctx.Request.Header.Peek("X-Forwarded-For")
+	xRealIP := ctx.Request.Header.Peek(xRealIP)
+	xForwardedFor := ctx.Request.Header.Peek(xForwardedFor)
 
 	// If both empty, return IP from remote address
 	if xRealIP == nil && xForwardedFor == nil {
