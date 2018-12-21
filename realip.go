@@ -2,8 +2,8 @@ package realip
 
 import (
 	"errors"
+	"github.com/valyala/fasthttp"
 	"net"
-	"net/http"
 	"strings"
 )
 
@@ -50,40 +50,38 @@ func isPrivateAddress(address string) (bool, error) {
 }
 
 // FromRequest return client's real public IP address from http request headers.
-func FromRequest(r *http.Request) string {
+func FromRequest(ctx *fasthttp.RequestCtx) string {
 	// Fetch header value
-	xRealIP := r.Header.Get("X-Real-Ip")
-	xForwardedFor := r.Header.Get("X-Forwarded-For")
+	xRealIP := ctx.Request.Header.Peek("X-Real-IP")
+	xForwardedFor := ctx.Request.Header.Peek("X-Forwarded-For")
 
 	// If both empty, return IP from remote address
-	if xRealIP == "" && xForwardedFor == "" {
-		var remoteIP string
-
+	if xRealIP == nil && xForwardedFor == nil {
 		// If there are colon in remote address, remove the port number
 		// otherwise, return remote address as is
-		if strings.ContainsRune(r.RemoteAddr, ':') {
-			remoteIP, _, _ = net.SplitHostPort(r.RemoteAddr)
-		} else {
-			remoteIP = r.RemoteAddr
-		}
+		var remoteIP string
+		remoteAddr := ctx.RemoteAddr().String()
 
+		if strings.ContainsRune(remoteAddr, ':') {
+			remoteIP, _, _ = net.SplitHostPort(remoteAddr)
+		} else {
+			remoteIP = remoteAddr
+		}
 		return remoteIP
 	}
 
+	xForwardedForStr := string(xForwardedFor)
 	// Check list of IP in X-Forwarded-For and return the first global address
-	for _, address := range strings.Split(xForwardedFor, ",") {
-		address = strings.TrimSpace(address)
-		isPrivate, err := isPrivateAddress(address)
-		if !isPrivate && err == nil {
-			return address
+	for _, address := range strings.Split(xForwardedForStr, ",") {
+		if len(address) > 0 {
+			address = strings.TrimSpace(address)
+			isPrivate, err := isPrivateAddress(address)
+			if !isPrivate && err == nil {
+				return address
+			}
 		}
 	}
 
 	// If nothing succeed, return X-Real-IP
-	return xRealIP
-}
-
-// RealIP is depreciated, use FromRequest instead
-func RealIP(r *http.Request) string {
-	return FromRequest(r)
+	return string(xRealIP)
 }

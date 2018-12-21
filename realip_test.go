@@ -1,7 +1,8 @@
 package realip
 
 import (
-	"net/http"
+	"github.com/valyala/fasthttp"
+	"net"
 	"testing"
 )
 
@@ -44,21 +45,24 @@ func TestRealIP(t *testing.T) {
 	// Create type and function for testing
 	type testIP struct {
 		name     string
-		request  *http.Request
+		request  *fasthttp.RequestCtx
 		expected string
 	}
 
-	newRequest := func(remoteAddr, xRealIP string, xForwardedFor ...string) *http.Request {
-		h := http.Header{}
-		h.Set("X-Real-IP", xRealIP)
+	newRequest := func(remoteAddr, xRealIP string, xForwardedFor ...string) *fasthttp.RequestCtx {
+		var ctx fasthttp.RequestCtx
+		addr := &net.TCPAddr{
+			IP: net.ParseIP(remoteAddr),
+		}
+		ctx.Init(&ctx.Request, addr, nil)
+
+		ctx.Request.Header.Set("X-Real-IP", xRealIP)
+
 		for _, address := range xForwardedFor {
-			h.Set("X-Forwarded-For", address)
+			ctx.Request.Header.Set("X-Forwarded-For", address)
 		}
 
-		return &http.Request{
-			RemoteAddr: remoteAddr,
-			Header:     h,
-		}
+		return &ctx
 	}
 
 	// Create test data
