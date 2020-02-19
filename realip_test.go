@@ -51,19 +51,15 @@ func TestRealIP(t *testing.T) {
 		expected string
 	}
 
-	newRequest := func(remoteAddr, xRealIP string, xForwardedFor ...string) *fasthttp.RequestCtx {
+	newRequest := func(remoteAddr string, headers map[string]string) *fasthttp.RequestCtx {
 		var ctx fasthttp.RequestCtx
 		addr := &net.TCPAddr{
 			IP: net.ParseIP(remoteAddr),
 		}
 		ctx.Init(&ctx.Request, addr, nil)
 
-		if xRealIP != "" {
-			ctx.Request.Header.Set("X-Real-IP", xRealIP)
-		}
-
-		for _, address := range xForwardedFor {
-			ctx.Request.Header.Set("X-Forwarded-For", address)
+		for header, value := range headers {
+			ctx.Request.Header.Set(header, value)
 		}
 
 		return &ctx
@@ -77,23 +73,32 @@ func TestRealIP(t *testing.T) {
 	testData := []testIP{
 		{
 			name:     "No header",
-			request:  newRequest(publicAddr1, ""),
+			request:  newRequest(publicAddr1, map[string]string{}),
 			expected: publicAddr1,
-		}, {
+		},
+		{
 			name:     "Has X-Forwarded-For",
-			request:  newRequest("", "", publicAddr1),
+			request:  newRequest("", map[string]string{"X-Forwarded-For": publicAddr1}),
 			expected: publicAddr1,
-		}, {
+		},
+		{
 			name:     "Has multiple X-Forwarded-For",
-			request:  newRequest("", "", localAddr, publicAddr1, publicAddr2),
+			request:  newRequest("", map[string]string{
+				"X-Forwarded-For": fmt.Sprintf("%s,%s,%s", publicAddr2, publicAddr1, localAddr),
+			}),
 			expected: publicAddr2,
-		}, {
-			name:     "Has multiple address for X-Forwarded-For",
-			request:  newRequest("", "", localAddr, fmt.Sprintf("%s,%s", publicAddr1, publicAddr2)),
-			expected: publicAddr1,
-		}, {
+		},
+		{
 			name:     "Has X-Real-IP",
-			request:  newRequest("", publicAddr1),
+			request:  newRequest("", map[string]string{"X-Real-IP": publicAddr1}),
+			expected: publicAddr1,
+		},
+		{
+			name:     "Has multiple X-Forwarded-For and X-Real-IP",
+			request:  newRequest("", map[string]string{
+				"X-Real-IP": publicAddr2,
+				"X-Forwarded-For": fmt.Sprintf("%s,%s", publicAddr1, localAddr),
+			}),
 			expected: publicAddr1,
 		},
 	}

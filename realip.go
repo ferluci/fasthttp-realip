@@ -11,8 +11,30 @@ import (
 
 // Should use canonical format of the header key s
 // https://golang.org/pkg/net/http/#CanonicalHeaderKey
-var xForwardedFor = http.CanonicalHeaderKey("X-Forwarded-For")
-var xRealIP = http.CanonicalHeaderKey("X-Real-IP")
+
+// Header may return multiple IP addresses in the format: "client IP, proxy 1 IP, proxy 2 IP", so we take the the first one.
+var xForwardedForHeader = http.CanonicalHeaderKey("X-Forwarded-For")
+var xForwardedHeader = http.CanonicalHeaderKey("X-Forwarded")
+var forwardedForHeader = http.CanonicalHeaderKey("Forwarded-For")
+var forwardedHeader = http.CanonicalHeaderKey("Forwarded")
+
+
+// Standard headers used by Amazon EC2, Heroku, and others
+var xClientIPHeader = http.CanonicalHeaderKey("X-Client-IP")
+
+// Nginx proxy/FastCGI
+var xRealIPHeader = http.CanonicalHeaderKey("X-Real-IP")
+
+// Cloudflare.
+// @see https://support.cloudflare.com/hc/en-us/articles/200170986-How-does-Cloudflare-handle-HTTP-Request-headers-
+// CF-Connecting-IP - applied to every request to the origin.
+var cfConnectingIPHeader = http.CanonicalHeaderKey("CF-Connecting-IP")
+
+// Fastly CDN and Firebase hosting header when forwared to a cloud function
+var fastlyClientIPHeader = http.CanonicalHeaderKey("Fastly-Client-Ip")
+
+// Akamai and Cloudflare
+var trueClientIPHeader = http.CanonicalHeaderKey("True-Client-Ip")
 
 var cidrs []*net.IPNet
 
@@ -58,37 +80,88 @@ func isPrivateAddress(address string) (bool, error) {
 
 // FromRequest returns client's real public IP address from http request headers.
 func FromRequest(ctx *fasthttp.RequestCtx) string {
-	// Fetch header value
-	xRealIP := ctx.Request.Header.Peek(xRealIP)
-	xForwardedFor := ctx.Request.Header.Peek(xForwardedFor)
-
-	// If both empty, return IP from remote address
-	if xRealIP == nil && xForwardedFor == nil {
-		// If there are colon in remote address, remove the port number
-		// otherwise, return remote address as is
-		var remoteIP string
-		remoteAddr := ctx.RemoteAddr().String()
-
-		if strings.ContainsRune(remoteAddr, ':') {
-			remoteIP, _, _ = net.SplitHostPort(remoteAddr)
-		} else {
-			remoteIP = remoteAddr
-		}
-		return remoteIP
+	xClientIP := ctx.Request.Header.Peek(xClientIPHeader)
+	if xClientIP != nil {
+		return string(xClientIP)
 	}
 
-	xForwardedForStr := string(xForwardedFor)
-	// Check list of IP in X-Forwarded-For and return the first global address
-	for _, address := range strings.Split(xForwardedForStr, ",") {
+	xForwardedFor := ctx.Request.Header.Peek(xForwardedForHeader)
+	if xForwardedFor != nil {
+		requestIP, err := RetrieveForwardedIP(string(xForwardedFor))
+		if err == nil {
+			return requestIP
+		}
+	}
+
+
+	cfConnectingIP := ctx.Request.Header.Peek(cfConnectingIPHeader)
+	if cfConnectingIP != nil {
+		return string(cfConnectingIP)
+	}
+
+	fastlyClientIP := ctx.Request.Header.Peek(fastlyClientIPHeader)
+	if fastlyClientIP != nil {
+		return string(fastlyClientIP)
+	}
+
+	trueClientIP := ctx.Request.Header.Peek(trueClientIPHeader)
+	if trueClientIP != nil {
+		return string(trueClientIP)
+	}
+
+	xRealIP := ctx.Request.Header.Peek(xRealIPHeader)
+	if xRealIP != nil {
+		return string(xRealIP)
+	}
+
+	xForwarded := ctx.Request.Header.Peek(xForwardedHeader)
+	if xForwarded != nil {
+		requestIP, err := RetrieveForwardedIP(string(xForwarded))
+		if err == nil {
+			return requestIP
+		}
+	}
+
+	forwardedFor := ctx.Request.Header.Peek(forwardedForHeader)
+	if forwardedFor != nil {
+		requestIP, err := RetrieveForwardedIP(string(forwardedFor))
+		if err == nil {
+			return requestIP
+		}
+	}
+
+	forwarded := ctx.Request.Header.Peek(forwardedHeader)
+	if forwardedFor != nil {
+		requestIP, err := RetrieveForwardedIP(string(forwarded))
+		if err == nil {
+			return requestIP
+		}
+	}
+
+	var remoteIP string
+	remoteAddr := ctx.RemoteAddr().String()
+
+	if strings.ContainsRune(remoteAddr, ':') {
+		remoteIP, _, _ = net.SplitHostPort(remoteAddr)
+	} else {
+		remoteIP = remoteAddr
+	}
+	return remoteIP
+}
+
+func RetrieveForwardedIP(forwardedHeader string) (string, error) {
+	for _, address := range strings.Split(forwardedHeader, ",") {
 		if len(address) > 0 {
 			address = strings.TrimSpace(address)
 			isPrivate, err := isPrivateAddress(address)
 			if !isPrivate && err == nil {
-				return address
+				return address, nil
+			} else if isPrivate && err == nil {
+				return "", errors.New("forwarded ip is private")
+			} else {
+				return "", err
 			}
 		}
 	}
-
-	// If nothing succeed, return X-Real-IP
-	return string(xRealIP)
+	return "", errors.New("empty or invalid forwarded header")
 }
