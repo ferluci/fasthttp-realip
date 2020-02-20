@@ -43,14 +43,13 @@ func TestIsPrivateAddr(t *testing.T) {
 	}
 }
 
-func TestRealIP(t *testing.T) {
-	// Create type and function for testing
-	type testIP struct {
-		name     string
-		request  *fasthttp.RequestCtx
-		expected string
-	}
+type testIP struct {
+	name     string
+	request  *fasthttp.RequestCtx
+	expected string
+}
 
+func TestRealIP(t *testing.T) {
 	newRequest := func(remoteAddr string, headers map[string]string) *fasthttp.RequestCtx {
 		var ctx fasthttp.RequestCtx
 		addr := &net.TCPAddr{
@@ -65,41 +64,36 @@ func TestRealIP(t *testing.T) {
 		return &ctx
 	}
 
-	// Create test data
-	publicAddr1 := "144.12.54.87"
-	publicAddr2 := "119.14.55.11"
-	localAddr := "127.0.0.0"
-
 	testData := []testIP{
 		{
 			name:     "No header",
-			request:  newRequest(publicAddr1, map[string]string{}),
-			expected: publicAddr1,
+			request:  newRequest("144.12.54.87", map[string]string{}),
+			expected: "144.12.54.87",
 		},
 		{
 			name:     "Has X-Forwarded-For",
-			request:  newRequest("", map[string]string{"X-Forwarded-For": publicAddr1}),
-			expected: publicAddr1,
+			request:  newRequest("", map[string]string{"X-Forwarded-For": "144.12.54.87"}),
+			expected: "144.12.54.87",
 		},
 		{
-			name:     "Has multiple X-Forwarded-For",
-			request:  newRequest("", map[string]string{
-				"X-Forwarded-For": fmt.Sprintf("%s,%s,%s", publicAddr2, publicAddr1, localAddr),
+			name: "Has multiple X-Forwarded-For",
+			request: newRequest("", map[string]string{
+				"X-Forwarded-For": fmt.Sprintf("%s,%s,%s", "119.14.55.11", "144.12.54.87", "127.0.0.0"),
 			}),
-			expected: publicAddr2,
+			expected: "119.14.55.11",
 		},
 		{
 			name:     "Has X-Real-IP",
-			request:  newRequest("", map[string]string{"X-Real-IP": publicAddr1}),
-			expected: publicAddr1,
+			request:  newRequest("", map[string]string{"X-Real-IP": "144.12.54.87"}),
+			expected: "144.12.54.87",
 		},
 		{
-			name:     "Has multiple X-Forwarded-For and X-Real-IP",
-			request:  newRequest("", map[string]string{
-				"X-Real-IP": publicAddr2,
-				"X-Forwarded-For": fmt.Sprintf("%s,%s", publicAddr1, localAddr),
+			name: "Has multiple X-Forwarded-For and X-Real-IP",
+			request: newRequest("", map[string]string{
+				"X-Real-IP":       "119.14.55.11",
+				"X-Forwarded-For": fmt.Sprintf("%s,%s", "144.12.54.87", "127.0.0.0"),
 			}),
-			expected: publicAddr1,
+			expected: "144.12.54.87",
 		},
 	}
 
