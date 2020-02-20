@@ -27,27 +27,30 @@ The user ip is determined by the following order:
 7. `X-Forwarded`, `Forwarded-For` and `Forwarded` (Variations of #2)
 8. `ctx.RemoteAddr().String()`
 
+## Install
+```go
+go get -u github.com/valyala/fasthttp
+```
 ## Example
 
 ```go
 package main
 
-import (
-	"log"
-
-	"github.com/valyala/fasthttp"
+import (   
+    "log"
+    "github.com/valyala/fasthttp"
     "github.com/Ferluci/fast-realip"
 )
 
-func main() {
-	if err := fasthttp.ListenAndServe(":8080", realipHandler); err != nil {
-		log.Fatalf("Error in ListenAndServe: %s", err)
-	}
+func main() {  
+    if err := fasthttp.ListenAndServe(":8080", realipHandler); err != nil {
+        log.Fatalf("Error in ListenAndServe: %s", err)
+    }
 }
 
 func realipHandler(ctx *fasthttp.RequestCtx) {
-	clientIP := realip.FromRequest(ctx)
-	log.Println("GET / from", clientIP)
+    clientIP := realip.FromRequest(ctx)
+    log.Println("GET / from", clientIP)
 }
 
 
