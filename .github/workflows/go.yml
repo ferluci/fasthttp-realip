@@ -1,0 +1,50 @@
+on: [push, pull_request]
+name: test and build
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install Go
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.12.x
+    - name: Checkout code
+      uses: actions/checkout@v1
+    - name: Install golangci-lint
+      run: |
+        go get github.com/golangci/golangci-lint/cmd/golangci-lint
+    - name: Run linters
+      run: |
+        export PATH=$PATH:$(go env GOPATH)/bin
+        ./pre-commit
+  test:
+    runs-on: ubuntu-latest
+    steps:
+     - name: Install Go
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.12.x
+    - name: Checkout code
+      uses: actions/checkout@v1
+    - name: Run tests
+      run: go test -v -covermode=count
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+    - name: Install Go
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.12.x
+    - name: Checkout code
+      uses: actions/checkout@v1
+    - name: build
+      run: |
+        export GO111MODULE=on
+        GOOS=linux   GOARCH=amd64 go build -o bin/ci-test-linux-amd64
+    - name: upload artifacts
+      uses: actions/upload-artifact@master
+      with:
+        name: binaries
+        path: bin/
