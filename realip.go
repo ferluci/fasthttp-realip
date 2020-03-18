@@ -13,6 +13,7 @@ import (
 // https://golang.org/pkg/net/http/#CanonicalHeaderKey
 
 // Header may return multiple IP addresses in the format: "client IP, proxy 1 IP, proxy 2 IP", so we take the the first one.
+var xOriginalForwardedForHeader = http.CanonicalHeaderKey("X-Original-Forwarded-For")
 var xForwardedForHeader = http.CanonicalHeaderKey("X-Forwarded-For")
 var xForwardedHeader = http.CanonicalHeaderKey("X-Forwarded")
 var forwardedForHeader = http.CanonicalHeaderKey("Forwarded-For")
@@ -82,6 +83,14 @@ func FromRequest(ctx *fasthttp.RequestCtx) string {
 	xClientIP := ctx.Request.Header.Peek(xClientIPHeader)
 	if xClientIP != nil {
 		return string(xClientIP)
+	}
+
+	xOriginalForwardedFor := ctx.Request.Header.Peek(xOriginalForwardedForHeader)
+	if xOriginalForwardedFor != nil {
+		requestIP, err := retrieveForwardedIP(string(xOriginalForwardedFor))
+		if err == nil {
+			return requestIP
+		}
 	}
 
 	xForwardedFor := ctx.Request.Header.Peek(xForwardedForHeader)
