@@ -1,51 +1,53 @@
 on: [push, pull_request]
 name: test and build
+permissions:
+  contents: read
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-    - name: Install Go
-      uses: actions/setup-go@v1
-      with:
-        go-version: 1.12.x
     - name: Checkout code
-      uses: actions/checkout@v1
-    - name: Install golangci-lint
-      run: |
-        go get github.com/golangci/golangci-lint/cmd/golangci-lint
+      uses: actions/checkout@v4
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: stable
     - name: Run linters
-      run: |
-        export PATH=$PATH:$(go env GOPATH)/bin
-        golangci-lint -E bodyclose,misspell,gocyclo,dupl,gofmt,golint,unconvert,goimports,depguard,gocritic,funlen,interfacer run
+      uses: golangci/golangci-lint-action@v6
+      with:
+        # Pinned v1 release: golint, interfacer and depguard of the old
+        # config are gone or need config there; revive replaces golint.
+        version: v1.64.8
+        # Test tables are long by design; funlen/dupl target library code.
+        args: --tests=false -E bodyclose,misspell,gocyclo,dupl,gofmt,revive,unconvert,goimports,gocritic,funlen
 
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: [oldstable, stable]
     steps:
-    - name: Install Go
-      uses: actions/setup-go@v1
-      with:
-        go-version: 1.12.x
     - name: Checkout code
-      uses: actions/checkout@v1
+      uses: actions/checkout@v4
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go-version }}
     - name: Run tests
-      run: go test -v -covermode=count
+      run: go test -v -race -covermode=atomic ./...
+    - name: Fuzz resolver
+      run: go test -run '^$' -fuzz FuzzResolver -fuzztime 30s .
 
   build:
     runs-on: ubuntu-latest
     needs: [lint, test]
     steps:
-    - name: Install Go
-      uses: actions/setup-go@v1
-      with:
-        go-version: 1.12.x
     - name: Checkout code
-      uses: actions/checkout@v1
-    - name: build
-      run: |
-        export GO111MODULE=on
-        GOOS=linux   GOARCH=amd64 go build -o bin/ci-test-linux-amd64
-    - name: upload artifacts
-      uses: actions/upload-artifact@master
+      uses: actions/checkout@v4
+    - name: Install Go
+      uses: actions/setup-go@v5
       with:
-        name: binaries
-        path: bin/
+        go-version: stable
+    - name: Build
+      # A library has no binary; building all packages is the check.
+      run: go build ./...
