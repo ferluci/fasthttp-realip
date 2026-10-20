@@ -13,13 +13,11 @@ jobs:
       with:
         go-version: stable
     - name: Run linters
-      uses: golangci/golangci-lint-action@v6
+      uses: golangci/golangci-lint-action@v9
       with:
-        # Pinned v1 release: golint, interfacer and depguard of the old
-        # config are gone or need config there; revive replaces golint.
-        version: v1.64.8
-        # Test tables are long by design; funlen/dupl target library code.
-        args: --tests=false -E bodyclose,misspell,gocyclo,dupl,gofmt,revive,unconvert,goimports,gocritic,funlen
+        # v2 is built with a current Go and reads stable Go export data;
+        # v1.64.8 could not ("export data version 5"). Linters: .golangci.yml.
+        version: v2.15.0
 
   test:
     runs-on: ubuntu-latest

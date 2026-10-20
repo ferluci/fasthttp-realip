@@ -1,0 +1,18 @@
+version: "2"
+run:
+  # Test tables are long by design; funlen/dupl target library code.
+  tests: false
+linters:
+  enable:
+    - bodyclose
+    - misspell
+    - gocyclo
+    - dupl
+    - revive
+    - unconvert
+    - gocritic
+    - funlen
+formatters:
+  enable:
+    - gofmt
+    - goimports
