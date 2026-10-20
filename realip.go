@@ -79,6 +79,15 @@ func isPrivateAddress(address string) (bool, error) {
 }
 
 // FromRequest returns client's real public IP address from http request headers.
+//
+// Security: FromRequest trusts every header it reads, and clients can set
+// all of them. X-Client-IP, CF-Connecting-IP, Fastly-Client-Ip,
+// True-Client-Ip and X-Real-IP are returned verbatim, without checking that
+// they hold an IP, and X-Forwarded-For uses its leftmost entry, which the
+// client writes. Use it only for display or logging, or when every one of
+// these headers is removed or overwritten by your edge proxy. For access
+// control, rate limiting or audit records use Resolver, which trusts only
+// configured proxies. The behavior is kept unchanged for compatibility.
 func FromRequest(ctx *fasthttp.RequestCtx) string {
 	xClientIP := ctx.Request.Header.Peek(xClientIPHeader)
 	if xClientIP != nil {
