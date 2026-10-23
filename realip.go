@@ -1,3 +1,8 @@
+// Package realip returns the client IP address of a fasthttp request.
+//
+// FromRequest keeps the historical header order and trusts every header;
+// Resolver trusts only configured proxies and is the safe choice for access
+// control, rate limiting and audit records.
 package realip
 
 import (
@@ -12,7 +17,7 @@ import (
 // Should use canonical format of the header key s
 // https://golang.org/pkg/net/http/#CanonicalHeaderKey
 
-// Header may return multiple IP addresses in the format: "client IP, proxy 1 IP, proxy 2 IP", so we take the the first one.
+// Header may return multiple IP addresses in the format: "client IP, proxy 1 IP, proxy 2 IP", so we take the first one.
 var xOriginalForwardedForHeader = http.CanonicalHeaderKey("X-Original-Forwarded-For")
 var xForwardedForHeader = http.CanonicalHeaderKey("X-Forwarded-For")
 var xForwardedHeader = http.CanonicalHeaderKey("X-Forwarded")
@@ -30,7 +35,7 @@ var xRealIPHeader = http.CanonicalHeaderKey("X-Real-IP")
 // CF-Connecting-IP - applied to every request to the origin.
 var cfConnectingIPHeader = http.CanonicalHeaderKey("CF-Connecting-IP")
 
-// Fastly CDN and Firebase hosting header when forwared to a cloud function
+// Fastly CDN and Firebase hosting header when forwarded to a cloud function
 var fastlyClientIPHeader = http.CanonicalHeaderKey("Fastly-Client-Ip")
 
 // Akamai and Cloudflare
@@ -79,6 +84,15 @@ func isPrivateAddress(address string) (bool, error) {
 }
 
 // FromRequest returns client's real public IP address from http request headers.
+//
+// Security: FromRequest trusts every header it reads, and clients can set
+// all of them. X-Client-IP, CF-Connecting-IP, Fastly-Client-Ip,
+// True-Client-Ip and X-Real-IP are returned verbatim, without checking that
+// they hold an IP, and X-Forwarded-For uses its leftmost entry, which the
+// client writes. Use it only for display or logging, or when every one of
+// these headers is removed or overwritten by your edge proxy. For access
+// control, rate limiting or audit records use Resolver, which trusts only
+// configured proxies. The behavior is kept unchanged for compatibility.
 func FromRequest(ctx *fasthttp.RequestCtx) string {
 	xClientIP := ctx.Request.Header.Peek(xClientIPHeader)
 	if xClientIP != nil {

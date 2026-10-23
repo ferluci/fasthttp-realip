@@ -95,6 +95,45 @@ func TestRealIP(t *testing.T) {
 			}),
 			expected: "144.12.54.87",
 		},
+
+		// The cases below pin legacy behavior that consumers depend on, even
+		// where it is spoofable. FromRequest must not change; Resolver is the
+		// safe replacement.
+		{
+			name:     "X-Client-IP wins and is returned verbatim",
+			request:  newRequest("144.12.54.87", map[string]string{"X-Client-IP": "not-an-ip", "X-Forwarded-For": "119.14.55.11"}),
+			expected: "not-an-ip",
+		},
+		{
+			name:     "X-Original-Forwarded-For before X-Forwarded-For",
+			request:  newRequest("", map[string]string{"X-Original-Forwarded-For": "119.14.55.11", "X-Forwarded-For": "144.12.54.87"}),
+			expected: "119.14.55.11",
+		},
+		{
+			name:     "Private first X-Forwarded-For entry skips the header",
+			request:  newRequest("144.12.54.87", map[string]string{"X-Forwarded-For": "10.0.0.1, 119.14.55.11"}),
+			expected: "144.12.54.87",
+		},
+		{
+			name:     "CF-Connecting-IP before X-Real-IP",
+			request:  newRequest("", map[string]string{"CF-Connecting-IP": "119.14.55.11", "X-Real-IP": "144.12.54.87"}),
+			expected: "119.14.55.11",
+		},
+		{
+			name:     "X-Real-IP is returned verbatim",
+			request:  newRequest("144.12.54.87", map[string]string{"X-Real-IP": "junk"}),
+			expected: "junk",
+		},
+		{
+			name:     "RFC 7239 Forwarded is not parsed",
+			request:  newRequest("144.12.54.87", map[string]string{"Forwarded": "for=119.14.55.11"}),
+			expected: "144.12.54.87",
+		},
+		{
+			name:     "Forwarded-For with a bare IP",
+			request:  newRequest("144.12.54.87", map[string]string{"Forwarded-For": "119.14.55.11"}),
+			expected: "119.14.55.11",
+		},
 	}
 
 	// Run test
